@@ -1,0 +1,3 @@
+# Compiled binaries (go build ./... drops these at the repo root)
+/m0spike
+/qi-index
