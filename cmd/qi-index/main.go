@@ -30,7 +30,7 @@ func main() {
 	wsURL := fs.String("ws", "wss://rpc.quai.network/cyprus1", "zone WS URL (empty = poll only)")
 	dbURL := fs.String("db", "", "Postgres URL (empty = in-memory store)")
 	poll := fs.Duration("poll", 15*time.Second, "safety-net head poll interval")
-	depth := fs.Int("depth", 32, "reorg window depth")
+	depth := fs.Int("depth", 1024, "reorg window depth")
 	metricsAddr := fs.String("metrics", "", "metrics listen address, e.g. :2112 (empty = off)")
 	verbose := fs.Bool("v", false, "debug logging")
 	fs.Parse(os.Args[2:])
