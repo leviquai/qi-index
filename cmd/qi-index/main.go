@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -68,6 +69,15 @@ func main() {
 		metrics.TipHeight.Set(float64(u.Apply[len(u.Apply)-1].Height))
 	}
 
+	if _, tipHeight := f.Tip(); tipHeight > 0 {
+		if head, err := client.LatestBlock(ctx); err == nil && head.Height > tipHeight+uint64(*depth) {
+			if err := f.CatchUp(ctx, head.Height, client); err != nil {
+				log.Error("catch-up", "err", err)
+				os.Exit(1)
+			}
+		}
+	}
+
 	if *metricsAddr != "" {
 		go func() {
 			if err := metrics.Serve(*metricsAddr); err != nil {
@@ -90,7 +100,7 @@ func main() {
 			log.Info("shutting down")
 			return
 		case head := <-heads:
-			if err := f.Ingest(ctx, head); err != nil {
+			if err := ingestOrCatchUp(ctx, f, client, *depth, head); err != nil {
 				metrics.RPCErrors.Inc()
 				log.Error("ingest ws head", "height", head.Height, "err", err)
 			}
@@ -101,10 +111,18 @@ func main() {
 				log.Warn("fetch head", "err", err)
 				continue
 			}
-			if err := f.Ingest(ctx, head); err != nil {
+			if err := ingestOrCatchUp(ctx, f, client, *depth, head); err != nil {
 				metrics.RPCErrors.Inc()
 				log.Error("ingest polled head", "height", head.Height, "err", err)
 			}
 		}
 	}
+}
+
+func ingestOrCatchUp(ctx context.Context, f *follower.Follower, client *rpcclient.Client, depth int, head chain.Block) error {
+	err := f.Ingest(ctx, head)
+	if _, tipHeight := f.Tip(); errors.Is(err, follower.ErrReorgTooDeep) && head.Height > tipHeight+uint64(depth) {
+		return f.CatchUp(ctx, head.Height, client)
+	}
+	return err
 }

@@ -196,6 +196,34 @@ func TestGapFill(t *testing.T) {
 	assertCanonical(t, st, fc, "main", 120, 20)
 }
 
+func (fc *fakeChain) BlocksByRange(ctx context.Context, from, to uint64) ([]chain.Block, error) {
+	var out []chain.Block
+	for h := from; h < to; h++ {
+		if b, ok := fc.blocks[hashOf("main", h)]; ok {
+			out = append(out, b)
+		}
+	}
+	return out, nil
+}
+
+func TestCatchUpAfterDowntime(t *testing.T) {
+	fc := newFakeChain()
+	fc.extend("main", "main", 100, 800)
+	st := store.NewMemory()
+	f := newFollower(t, st, fc, 32)
+	f.Ingest(context.Background(), fc.get("main", 101))
+	feed(t, f, fc, "main", 101, 110)
+
+	if err := f.CatchUp(context.Background(), 800, fc); err != nil {
+		t.Fatalf("catch-up: %v", err)
+	}
+	tip, _, _ := st.Tip(context.Background())
+	if tip.Height != 800 {
+		t.Fatalf("tip = %d, want 800", tip.Height)
+	}
+	assertCanonical(t, st, fc, "main", 800, 32)
+}
+
 func TestReorgTooDeep(t *testing.T) {
 	const depth = 8
 	fc := newFakeChain()

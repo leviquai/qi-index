@@ -29,8 +29,7 @@ type wsSpine struct {
 	} `json:"woHeader"`
 }
 
-// ParseWSBlock extracts spine fields from a newChainBlocksV2 payload
-// ({woHeader, woBody} shape).
+// ParseWSBlock extracts spine fields from a newChainBlocksV2 payload.
 func ParseWSBlock(raw json.RawMessage) (chain.Block, error) {
 	var s wsSpine
 	if err := json.Unmarshal(raw, &s); err != nil {
@@ -46,9 +45,8 @@ func ParseWSBlock(raw json.RawMessage) (chain.Block, error) {
 	return chain.Block{Height: height, Hash: s.WoHeader.Hash, ParentHash: s.WoHeader.ParentHash, Raw: raw}, nil
 }
 
-// StreamBlocks subscribes to newChainBlocksV2 and sends each head into out,
-// reconnecting with backoff until ctx is done. onReconnect, if set, is called
-// per reconnect attempt.
+// StreamBlocks feeds newChainBlocksV2 heads into out, reconnecting with
+// backoff until ctx is done.
 func StreamBlocks(ctx context.Context, wsURL string, out chan<- chain.Block, log *slog.Logger, onReconnect func()) {
 	backoff := time.Second
 	for ctx.Err() == nil {

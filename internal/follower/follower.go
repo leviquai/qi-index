@@ -24,6 +24,11 @@ type Fetcher interface {
 	BlockByHash(ctx context.Context, hash string) (chain.Block, error)
 }
 
+// RangeFetcher retrieves blocks by height range for catch-up after downtime.
+type RangeFetcher interface {
+	BlocksByRange(ctx context.Context, from, to uint64) ([]chain.Block, error)
+}
+
 type Follower struct {
 	store    store.Store
 	fetch    Fetcher
@@ -154,6 +159,29 @@ func (f *Follower) rollbackFrom(ancestor string) ([]chain.Block, error) {
 		cur = blk.ParentHash
 	}
 	return rollback, nil
+}
+
+// CatchUp advances the tip to targetHeight for gaps wider than the window.
+func (f *Follower) CatchUp(ctx context.Context, targetHeight uint64, rf RangeFetcher) error {
+	const batch = 100
+	f.log.Info("catching up", "from", f.tipHeight, "to", targetHeight)
+	for f.tipHeight < targetHeight {
+		from := f.tipHeight + 1
+		to := min(from+batch, targetHeight+1)
+		blocks, err := rf.BlocksByRange(ctx, from, to)
+		if err != nil {
+			return fmt.Errorf("catch-up fetch [%d,%d): %w", from, to, err)
+		}
+		if len(blocks) == 0 {
+			return nil
+		}
+		for _, b := range blocks {
+			if err := f.Ingest(ctx, b); err != nil {
+				return fmt.Errorf("catch-up ingest %d: %w", b.Height, err)
+			}
+		}
+	}
+	return nil
 }
 
 func (f *Follower) prune() {
