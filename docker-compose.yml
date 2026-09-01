@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-qi_index}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-qi_index}
+      POSTGRES_DB: ${POSTGRES_DB:-qi_index}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-qi_index} -d ${POSTGRES_DB:-qi_index}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  qi-index:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      QI_DATABASE_URL: postgres://${POSTGRES_USER:-qi_index}:${POSTGRES_PASSWORD:-qi_index}@postgres:5432/${POSTGRES_DB:-qi_index}?sslmode=disable
+      QI_RPC_URL: ${QI_RPC_URL:-https://rpc.quai.network/cyprus1}
+      QI_WS_URL: ${QI_WS_URL:-wss://rpc.quai.network/cyprus1}
+      QI_METRICS_ADDR: ${QI_METRICS_ADDR:-:2112}
+      QI_VERBOSE: ${QI_VERBOSE:-false}
+    ports:
+      - "${METRICS_PORT:-2112}:2112"
+    volumes:
+      - ./configs:/app/configs:ro
+    command: ["follow"]
+
+  # Throwaway Postgres for `make test-integration` — never used by the app
+  # itself. Ephemeral storage (tmpfs) and its own port so it never collides
+  # with the `postgres` service above. See internal/store/postgres_test.go:
+  # tests refuse to run against a database whose name doesn't contain "test".
+  postgres-test:
+    image: postgres:16-alpine
+    profiles: ["test"]
+    environment:
+      POSTGRES_USER: qi_index
+      POSTGRES_PASSWORD: qi_index
+      POSTGRES_DB: qi_index_test
+    ports:
+      - "${TEST_POSTGRES_PORT:-5433}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qi_index -d qi_index_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    restart: unless-stopped
+    profiles: ["observability"]
+    depends_on:
+      - qi-index
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+
+volumes:
+  postgres-data:
+  prometheus-data:
