@@ -1,0 +1,32 @@
+# qi-index configuration.
+#
+# Copy this file to configs/config.yaml (or point -config / QI_CONFIG at your
+# own copy) and edit as needed. Every value here is optional — anything left
+# out falls back to its built-in default, and everything can also be set via
+# environment variables or CLI flags, which take precedence over this file.
+# See README.md for the full precedence order and the matching env vars.
+
+follow:
+  # Zone RPC URL used for polling and catch-up range fetches.
+  rpc_url: https://rpc.quai.network/cyprus1
+
+  # Zone WS URL for live head notifications. Leave empty to poll only.
+  ws_url: wss://rpc.quai.network/cyprus1
+
+  # Postgres connection string. Leave empty to use the in-memory store
+  # (state is lost on restart; fine for local development only).
+  database_url: ""
+
+  # Safety-net head poll interval, used alongside (or instead of) the WS
+  # subscription.
+  poll_interval: 15s
+
+  # How many blocks back the follower keeps in its reorg window before
+  # falling back to a full catch-up.
+  reorg_depth: 1024
+
+  # Prometheus metrics + /healthz listen address. Leave empty to disable.
+  metrics_addr: ":2112"
+
+  # Debug-level logging.
+  verbose: false

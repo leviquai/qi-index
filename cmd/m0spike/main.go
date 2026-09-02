@@ -31,8 +31,12 @@ const (
 	externalTxType = 0x1
 	qiTxType       = 0x2
 
-	coinbaseEtxType   = 0x0
-	conversionEtxType = 0x1
+	crossShardEtxType       = 0x0
+	coinbaseEtxType         = 0x1
+	conversionEtxType       = 0x2
+	coinbaseLockupEtxType   = 0x3
+	conversionLockupEtxType = 0x5
+	qiUnwrapEtxType         = 0x6
 )
 
 // Denominations mirrors go-quai core/types/utxo.go:38-55 (values in qits;
@@ -259,6 +263,7 @@ func main() {
 
 func scanTxs(st *stats, height uint64, txs []transaction, verbose bool) {
 	for _, tx := range txs {
+		fmt.Printf("\nblock %d tx %s type=0x%x", height, tx.Hash, uint64(tx.Type))
 		switch uint64(tx.Type) {
 		case qiTxType:
 			st.qiTxs++
