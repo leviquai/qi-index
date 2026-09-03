@@ -82,8 +82,10 @@ curl http://localhost:8080/stats
 
 | Port | Service |
 |------|---------|
-| `8080` | REST and WebSocket API |
+| `80` | REST and WebSocket API (via nginx, rate-limited and cached) |
 | `2112` | Prometheus metrics and `/healthz` |
+
+nginx sits in front of qi-index and handles rate limiting (200 requests per minute per IP), response caching for `/tip`, `/stats`, and `/openapi.yaml`, and WebSocket proxying. qi-index itself is not exposed directly to the host.
 
 Postgres is not exposed to the host by default. If you want to inspect the database directly, add `POSTGRES_PORT=5432` to your `.env` and it will be available on `localhost:5432`.
 

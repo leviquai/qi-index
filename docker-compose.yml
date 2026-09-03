@@ -31,10 +31,27 @@ services:
       QI_VERBOSE: ${QI_VERBOSE:-false}
     ports:
       - "${METRICS_PORT:-2112}:2112"
-      - "${API_PORT:-8080}:8080"
     volumes:
       - ./configs:/app/configs:ro
     command: ["follow"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:2112/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      qi-index:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-80}:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - nginx-cache:/var/cache/nginx
 
   # Throwaway Postgres for `make test-integration` — never used by the app
   # itself. Ephemeral storage (tmpfs) and its own port so it never collides
@@ -72,3 +89,4 @@ services:
 volumes:
   postgres-data:
   prometheus-data:
+  nginx-cache:
