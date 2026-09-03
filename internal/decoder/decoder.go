@@ -32,7 +32,7 @@ func New(log *slog.Logger) *Decoder {
 func (d *Decoder) DecodeApply(ctx context.Context, tx pgx.Tx, blocks []chain.Block) error {
 	for _, b := range blocks {
 		if err := d.applyBlock(ctx, tx, b); err != nil {
-			return fmt.Errorf("block %d (%s): %w", b.Height, b.Hash[:10], err)
+			return fmt.Errorf("block %d (%s): %w", b.Height, b.Hash[:min(10, len(b.Hash))], err)
 		}
 	}
 	return nil
@@ -42,7 +42,7 @@ func (d *Decoder) DecodeApply(ctx context.Context, tx pgx.Tx, blocks []chain.Blo
 func (d *Decoder) DecodeRollback(ctx context.Context, tx pgx.Tx, blocks []chain.Block) error {
 	for _, b := range blocks {
 		if err := d.rollbackBlock(ctx, tx, b); err != nil {
-			return fmt.Errorf("rollback block %d (%s): %w", b.Height, b.Hash[:10], err)
+			return fmt.Errorf("rollback block %d (%s): %w", b.Height, b.Hash[:min(10, len(b.Hash))], err)
 		}
 	}
 	return nil
@@ -74,15 +74,19 @@ func (d *Decoder) applyBlock(ctx context.Context, tx pgx.Tx, b chain.Block) erro
 			if err != nil {
 				return fmt.Errorf("input pubkey: %w", err)
 			}
-			if _, err := tx.Exec(ctx, `
+			tag, err := tx.Exec(ctx, `
 				UPDATE utxos
 				SET spent_block = $1, spent_tx = $2, spender_pubkey = $3
 				WHERE tx_hash = $4 AND tx_index = $5
 				  AND spent_block IS NULL AND trimmed_block IS NULL`,
 				b.Height, txHash, pubkey,
 				prevHash, int32(in.PreviousOutPoint.Index),
-			); err != nil {
+			)
+			if err != nil {
 				return fmt.Errorf("mark spent: %w", err)
+			}
+			if tag.RowsAffected() == 0 {
+				d.log.Warn("spend matched no unspent utxo", "tx", txHash, "index", in.PreviousOutPoint.Index, "block", b.Height)
 			}
 			spends++
 		}

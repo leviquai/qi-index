@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"strconv"
 	"strings"
 	"time"
@@ -26,7 +27,11 @@ type wsSpine struct {
 		Hash       string `json:"hash"`
 		ParentHash string `json:"parentHash"`
 		Number     string `json:"number"`
+		Timestamp  string `json:"timestamp"`
 	} `json:"woHeader"`
+	Header struct {
+		ExchangeRate string `json:"exchangeRate"`
+	} `json:"header"`
 }
 
 // ParseWSBlock extracts spine fields from a newChainBlocksV2 payload.
@@ -42,7 +47,16 @@ func ParseWSBlock(raw json.RawMessage) (chain.Block, error) {
 	if err != nil {
 		return chain.Block{}, fmt.Errorf("parse ws block number %q: %w", s.WoHeader.Number, err)
 	}
-	return chain.Block{Height: height, Hash: s.WoHeader.Hash, ParentHash: s.WoHeader.ParentHash, Raw: raw}, nil
+	ts, _ := strconv.ParseUint(strings.TrimPrefix(s.WoHeader.Timestamp, "0x"), 16, 64)
+	var er *big.Int
+	if hex := strings.TrimPrefix(s.Header.ExchangeRate, "0x"); hex != "" {
+		er = new(big.Int)
+		er.SetString(hex, 16)
+	}
+	return chain.Block{
+		Height: height, Hash: s.WoHeader.Hash, ParentHash: s.WoHeader.ParentHash,
+		Timestamp: ts, ExchangeRate: er, Raw: raw,
+	}, nil
 }
 
 // StreamBlocks feeds newChainBlocksV2 heads into out, reconnecting with

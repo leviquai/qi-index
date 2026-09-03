@@ -5,6 +5,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"math/big"
 	"sort"
 
 	"github.com/jackc/pgx/v5"
@@ -90,15 +91,20 @@ func (p *Postgres) migrate(ctx context.Context) error {
 
 func (p *Postgres) Tip(ctx context.Context) (chain.Block, bool, error) {
 	var b chain.Block
+	var er *string
 	err := p.pool.QueryRow(ctx, `
-		SELECT b.hash, b.parent_hash, b.height
+		SELECT b.hash, b.parent_hash, b.height, b.block_time, b.exchange_rate
 		FROM meta m JOIN blocks b ON b.hash = m.value
-		WHERE m.key = 'tip'`).Scan(&b.Hash, &b.ParentHash, &b.Height)
+		WHERE m.key = 'tip'`).Scan(&b.Hash, &b.ParentHash, &b.Height, &b.Timestamp, &er)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return chain.Block{}, false, nil
 	}
 	if err != nil {
 		return chain.Block{}, false, err
+	}
+	if er != nil {
+		b.ExchangeRate = new(big.Int)
+		b.ExchangeRate.SetString(*er, 16)
 	}
 	return b, true, nil
 }
@@ -168,9 +174,16 @@ func (p *Postgres) ApplyUpdate(ctx context.Context, u chain.Update) error {
 			}
 		}
 		for _, b := range u.Apply {
+			var er *string
+			if b.ExchangeRate != nil {
+				s := b.ExchangeRate.Text(16)
+				er = &s
+			}
 			if _, err := tx.Exec(ctx, `
-				INSERT INTO blocks (hash, parent_hash, height) VALUES ($1,$2,$3)
-				ON CONFLICT (hash) DO NOTHING`, b.Hash, b.ParentHash, b.Height); err != nil {
+				INSERT INTO blocks (hash, parent_hash, height, block_time, exchange_rate)
+				VALUES ($1,$2,$3,$4,$5)
+				ON CONFLICT (hash) DO NOTHING`,
+				b.Hash, b.ParentHash, b.Height, b.Timestamp, er); err != nil {
 				return err
 			}
 		}

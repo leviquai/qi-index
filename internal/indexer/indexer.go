@@ -28,13 +28,22 @@ type Indexer struct {
 	MetricsAddr  string
 	PollInterval time.Duration
 	ReorgDepth   int
+	// OnUpdate is called after every successfully applied chain.Update.
+	// Set before calling Run; nil is safe (no-op).
+	OnUpdate func(chain.Update)
 }
 
 // Run feeds heads into the follower until ctx is canceled. It first catches
 // up if the store's tip has fallen behind the chain head, then starts the
 // metrics server, the WS subscription (if configured) and the poll loop.
 func (ix *Indexer) Run(ctx context.Context) error {
-	ix.Follower.OnUpdate = ix.recordUpdate
+	extra := ix.OnUpdate
+	ix.Follower.OnUpdate = func(u chain.Update) {
+		ix.recordUpdate(u)
+		if extra != nil {
+			extra(u)
+		}
+	}
 
 	if err := ix.catchUpIfBehind(ctx); err != nil {
 		return fmt.Errorf("catch-up: %w", err)

@@ -1,0 +1,2 @@
+ALTER TABLE blocks ADD COLUMN block_time    BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE blocks ADD COLUMN exchange_rate TEXT;
