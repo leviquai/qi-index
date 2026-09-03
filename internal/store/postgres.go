@@ -19,8 +19,13 @@ var migrationsFS embed.FS
 // Postgres implements Store with the rollback, apply and tip moved in a single
 // transaction, so the stored tip always matches the stored blocks.
 type Postgres struct {
-	pool *pgxpool.Pool
+	pool    *pgxpool.Pool
+	decoder BlockDecoder // optional; nil = no UTXO decoding
 }
+
+// SetDecoder injects a BlockDecoder so UTXO events are written atomically with
+// the spine inside the same transaction as ApplyUpdate.
+func (p *Postgres) SetDecoder(d BlockDecoder) { p.decoder = d }
 
 func NewPostgres(ctx context.Context, databaseURL string) (*Postgres, error) {
 	pool, err := pgxpool.New(ctx, databaseURL)
@@ -152,6 +157,11 @@ func (p *Postgres) ApplyUpdate(ctx context.Context, u chain.Update) error {
 			}
 		}
 
+		if p.decoder != nil && len(u.Rollback) > 0 {
+			if err := p.decoder.DecodeRollback(ctx, tx, u.Rollback); err != nil {
+				return fmt.Errorf("utxo rollback: %w", err)
+			}
+		}
 		for _, rb := range u.Rollback {
 			if _, err := tx.Exec(ctx, `DELETE FROM blocks WHERE hash=$1`, rb.Hash); err != nil {
 				return err
@@ -162,6 +172,11 @@ func (p *Postgres) ApplyUpdate(ctx context.Context, u chain.Update) error {
 				INSERT INTO blocks (hash, parent_hash, height) VALUES ($1,$2,$3)
 				ON CONFLICT (hash) DO NOTHING`, b.Hash, b.ParentHash, b.Height); err != nil {
 				return err
+			}
+		}
+		if p.decoder != nil {
+			if err := p.decoder.DecodeApply(ctx, tx, u.Apply); err != nil {
+				return fmt.Errorf("utxo apply: %w", err)
 			}
 		}
 		newTip := u.Apply[len(u.Apply)-1].Hash

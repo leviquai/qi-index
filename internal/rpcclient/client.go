@@ -100,6 +100,11 @@ func (c *Client) callOne(ctx context.Context, method string, params ...any) (jso
 	return res[0].Result, nil
 }
 
+// CallRaw calls a single RPC method with the given params and returns the raw result.
+func (c *Client) CallRaw(ctx context.Context, method string, params ...any) (json.RawMessage, error) {
+	return c.callOne(ctx, method, params...)
+}
+
 func (c *Client) BlockNumber(ctx context.Context) (uint64, error) {
 	raw, err := c.callOne(ctx, "quai_blockNumber")
 	if err != nil {

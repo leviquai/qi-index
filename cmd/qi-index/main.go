@@ -1,5 +1,4 @@
-// Command qi-index runs the Qi ledger indexer. M1 scope: `follow` tracks the
-// chain spine reorg-safely.
+// Command qi-index runs the Qi ledger indexer.
 package main
 
 import (
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/leviquai/qi-index/internal/config"
+	"github.com/leviquai/qi-index/internal/decoder"
 	"github.com/leviquai/qi-index/internal/follower"
 	"github.com/leviquai/qi-index/internal/indexer"
 	"github.com/leviquai/qi-index/internal/rpcclient"
@@ -51,7 +51,7 @@ func newLogger(verbose bool) *slog.Logger {
 // run is the composition root: it builds the store, RPC client and follower
 // for cfg, then hands them to the indexer to drive.
 func run(ctx context.Context, cfg *config.Follow, log *slog.Logger) error {
-	st, closeStore, err := openStore(ctx, cfg.DatabaseURL)
+	st, closeStore, err := openStore(ctx, cfg.DatabaseURL, log)
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
 	}
@@ -78,8 +78,10 @@ func run(ctx context.Context, cfg *config.Follow, log *slog.Logger) error {
 }
 
 // openStore returns a Postgres-backed store when dbURL is set, otherwise an
-// in-memory one. The returned close func is always safe to call.
-func openStore(ctx context.Context, dbURL string) (store.Store, func(), error) {
+// in-memory one. When Postgres is used the UTXO decoder is injected so UTXO
+// events commit atomically with the spine. The returned close func is always
+// safe to call.
+func openStore(ctx context.Context, dbURL string, log *slog.Logger) (store.Store, func(), error) {
 	if dbURL == "" {
 		return store.NewMemory(), func() {}, nil
 	}
@@ -87,5 +89,6 @@ func openStore(ctx context.Context, dbURL string) (store.Store, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	pg.SetDecoder(decoder.New(log))
 	return pg, pg.Close, nil
 }
