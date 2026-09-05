@@ -121,7 +121,7 @@ func (d *Decoder) applyBlock(ctx context.Context, tx pgx.Tx, b chain.Block) erro
 					tx_hash, tx_index, address, denomination, lock_height, source,
 					created_block, created_tx, trim_deadline
 				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-				ON CONFLICT (tx_hash, tx_index) DO NOTHING`,
+				ON CONFLICT (tx_hash, tx_index, created_block) DO NOTHING`,
 				txHash, int32(idx), addrBytes,
 				uint8(out.Denomination), lockHeight, qidecode.SourceQiTx,
 				b.Height, txHash,
@@ -215,7 +215,7 @@ func (d *Decoder) insertCoinbaseETXOutputs(
 					tx_hash, tx_index, address, denomination, lock_height, source,
 					created_block, created_tx, trim_deadline
 				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-				ON CONFLICT (tx_hash, tx_index) DO NOTHING`,
+				ON CONFLICT (tx_hash, tx_index, created_block) DO NOTHING`,
 				etxHash, idx, toBytes,
 				o.Denomination, o.LockHeight, qidecode.SourceCoinbaseETX,
 				blockHeight, etxHash,
@@ -244,7 +244,7 @@ func (d *Decoder) insertConversionETXOutputs(
 					tx_hash, tx_index, address, denomination, lock_height, source,
 					created_block, created_tx, trim_deadline
 				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-				ON CONFLICT (tx_hash, tx_index) DO NOTHING`,
+				ON CONFLICT (tx_hash, tx_index, created_block) DO NOTHING`,
 				etxHash, idx, toBytes,
 				o.Denomination, o.LockHeight, qidecode.SourceConversionETX,
 				blockHeight, etxHash,
