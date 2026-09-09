@@ -32,7 +32,7 @@ func New(log *slog.Logger) *Decoder {
 func (d *Decoder) DecodeApply(ctx context.Context, tx pgx.Tx, blocks []chain.Block) error {
 	for _, b := range blocks {
 		if err := d.applyBlock(ctx, tx, b); err != nil {
-			return fmt.Errorf("block %d (%s): %w", b.Height, b.Hash[:10], err)
+			return fmt.Errorf("block %d (%s): %w", b.Height, b.Hash[:min(10, len(b.Hash))], err)
 		}
 	}
 	return nil
@@ -42,7 +42,7 @@ func (d *Decoder) DecodeApply(ctx context.Context, tx pgx.Tx, blocks []chain.Blo
 func (d *Decoder) DecodeRollback(ctx context.Context, tx pgx.Tx, blocks []chain.Block) error {
 	for _, b := range blocks {
 		if err := d.rollbackBlock(ctx, tx, b); err != nil {
-			return fmt.Errorf("rollback block %d (%s): %w", b.Height, b.Hash[:10], err)
+			return fmt.Errorf("rollback block %d (%s): %w", b.Height, b.Hash[:min(10, len(b.Hash))], err)
 		}
 	}
 	return nil
@@ -74,15 +74,19 @@ func (d *Decoder) applyBlock(ctx context.Context, tx pgx.Tx, b chain.Block) erro
 			if err != nil {
 				return fmt.Errorf("input pubkey: %w", err)
 			}
-			if _, err := tx.Exec(ctx, `
+			tag, err := tx.Exec(ctx, `
 				UPDATE utxos
 				SET spent_block = $1, spent_tx = $2, spender_pubkey = $3
 				WHERE tx_hash = $4 AND tx_index = $5
 				  AND spent_block IS NULL AND trimmed_block IS NULL`,
 				b.Height, txHash, pubkey,
 				prevHash, int32(in.PreviousOutPoint.Index),
-			); err != nil {
+			)
+			if err != nil {
 				return fmt.Errorf("mark spent: %w", err)
+			}
+			if tag.RowsAffected() == 0 {
+				d.log.Warn("spend matched no unspent utxo", "tx", txHash, "index", in.PreviousOutPoint.Index, "block", b.Height)
 			}
 			spends++
 		}
@@ -117,7 +121,7 @@ func (d *Decoder) applyBlock(ctx context.Context, tx pgx.Tx, b chain.Block) erro
 					tx_hash, tx_index, address, denomination, lock_height, source,
 					created_block, created_tx, trim_deadline
 				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-				ON CONFLICT (tx_hash, tx_index) DO NOTHING`,
+				ON CONFLICT (tx_hash, tx_index, created_block) DO NOTHING`,
 				txHash, int32(idx), addrBytes,
 				uint8(out.Denomination), lockHeight, qidecode.SourceQiTx,
 				b.Height, txHash,
@@ -211,7 +215,7 @@ func (d *Decoder) insertCoinbaseETXOutputs(
 					tx_hash, tx_index, address, denomination, lock_height, source,
 					created_block, created_tx, trim_deadline
 				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-				ON CONFLICT (tx_hash, tx_index) DO NOTHING`,
+				ON CONFLICT (tx_hash, tx_index, created_block) DO NOTHING`,
 				etxHash, idx, toBytes,
 				o.Denomination, o.LockHeight, qidecode.SourceCoinbaseETX,
 				blockHeight, etxHash,
@@ -240,7 +244,7 @@ func (d *Decoder) insertConversionETXOutputs(
 					tx_hash, tx_index, address, denomination, lock_height, source,
 					created_block, created_tx, trim_deadline
 				) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-				ON CONFLICT (tx_hash, tx_index) DO NOTHING`,
+				ON CONFLICT (tx_hash, tx_index, created_block) DO NOTHING`,
 				etxHash, idx, toBytes,
 				o.Denomination, o.LockHeight, qidecode.SourceConversionETX,
 				blockHeight, etxHash,

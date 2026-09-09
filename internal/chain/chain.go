@@ -2,16 +2,21 @@
 // decoders.
 package chain
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"math/big"
+)
 
 // Block is one zone block reduced to its spine fields plus the raw JSON body.
 // Height, Hash and ParentHash come from woHeader — the zone-level linkage in
 // both the flat RPC shape and the WS newChainBlocksV2 shape.
 type Block struct {
-	Height     uint64
-	Hash       string
-	ParentHash string
-	Raw        json.RawMessage
+	Height       uint64
+	Hash         string
+	ParentHash   string
+	Timestamp    uint64   // woHeader.timestamp (Unix seconds)
+	ExchangeRate *big.Int // header.exchangeRate; nil when absent
+	Raw          json.RawMessage
 }
 
 // Update is an atomic chain mutation: Rollback ordered tip→ancestor, Apply

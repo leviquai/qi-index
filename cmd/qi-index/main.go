@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/leviquai/qi-index/internal/api"
+	"github.com/leviquai/qi-index/internal/chain"
 	"github.com/leviquai/qi-index/internal/config"
 	"github.com/leviquai/qi-index/internal/decoder"
 	"github.com/leviquai/qi-index/internal/follower"
@@ -74,6 +76,29 @@ func run(ctx context.Context, cfg *config.Follow, log *slog.Logger) error {
 		PollInterval: time.Duration(cfg.PollInterval),
 		ReorgDepth:   cfg.ReorgDepth,
 	}
+
+	if cfg.APIAddr != "" {
+		if reader, ok := st.(store.Reader); ok {
+			srv := api.New(cfg.APIAddr, reader, log)
+			ix.OnUpdate = func(u chain.Update) {
+				last := u.Apply[len(u.Apply)-1]
+				ev, err := reader.GetBlockUTXOEvents(ctx, last.Height)
+				if err != nil {
+					log.Warn("api broadcast fetch", "height", last.Height, "err", err)
+					return
+				}
+				srv.Broadcast(ev)
+			}
+			go func() {
+				if err := srv.Start(ctx); err != nil {
+					log.Error("api server", "err", err)
+				}
+			}()
+		} else {
+			log.Warn("api_addr set but store does not support reads; API disabled")
+		}
+	}
+
 	return ix.Run(ctx)
 }
 

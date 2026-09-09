@@ -47,6 +47,7 @@ type Follow struct {
 	PollInterval Duration `yaml:"poll_interval"`
 	ReorgDepth   int      `yaml:"reorg_depth"`
 	MetricsAddr  string   `yaml:"metrics_addr"`
+	APIAddr      string   `yaml:"api_addr"`
 	Verbose      bool     `yaml:"verbose"`
 }
 
@@ -80,6 +81,7 @@ func LoadFollow(args []string) (*Follow, error) {
 	poll := fs.Duration("poll", 0, "safety-net head poll interval")
 	depth := fs.Int("depth", 0, "reorg window depth")
 	metricsAddr := fs.String("metrics", "", "metrics listen address, e.g. :2112 (empty = off)")
+	apiAddr := fs.String("api", "", "REST/WS API listen address, e.g. :8080 (empty = off)")
 	verbose := fs.Bool("v", false, "debug logging")
 	if err := fs.Parse(args); err != nil {
 		return nil, err
@@ -110,6 +112,8 @@ func LoadFollow(args []string) (*Follow, error) {
 			cfg.ReorgDepth = *depth
 		case "metrics":
 			cfg.MetricsAddr = *metricsAddr
+		case "api":
+			cfg.APIAddr = *apiAddr
 		case "v":
 			cfg.Verbose = *verbose
 		}
@@ -177,6 +181,9 @@ func mergeFollowEnv(cfg *Follow) {
 	}
 	if v := os.Getenv("QI_METRICS_ADDR"); v != "" {
 		cfg.MetricsAddr = v
+	}
+	if v := os.Getenv("QI_API_ADDR"); v != "" {
+		cfg.APIAddr = v
 	}
 	if v := os.Getenv("QI_VERBOSE"); v != "" {
 		if b, err := strconv.ParseBool(v); err == nil {

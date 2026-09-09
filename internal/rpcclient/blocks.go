@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,7 +18,11 @@ type spine struct {
 		Hash       string `json:"hash"`
 		ParentHash string `json:"parentHash"`
 		Number     string `json:"number"`
+		Timestamp  string `json:"timestamp"`
 	} `json:"woHeader"`
+	Header struct {
+		ExchangeRate string `json:"exchangeRate"`
+	} `json:"header"`
 }
 
 // ParseBlock extracts spine fields from flat-RPC block JSON. The WS woBody
@@ -38,7 +43,16 @@ func ParseBlock(raw json.RawMessage) (chain.Block, error) {
 	if err != nil {
 		return chain.Block{}, fmt.Errorf("parse block number %q: %w", s.WoHeader.Number, err)
 	}
-	return chain.Block{Height: height, Hash: hash, ParentHash: s.WoHeader.ParentHash, Raw: raw}, nil
+	ts, _ := strconv.ParseUint(strings.TrimPrefix(s.WoHeader.Timestamp, "0x"), 16, 64)
+	var er *big.Int
+	if hex := strings.TrimPrefix(s.Header.ExchangeRate, "0x"); hex != "" {
+		er = new(big.Int)
+		er.SetString(hex, 16)
+	}
+	return chain.Block{
+		Height: height, Hash: hash, ParentHash: s.WoHeader.ParentHash,
+		Timestamp: ts, ExchangeRate: er, Raw: raw,
+	}, nil
 }
 
 // BlockByNumber returns found=false when the node has no block at that height.
