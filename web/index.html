@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>qi-index — API Reference</title>
+    <meta name="description" content="REST and WebSocket API for the Qi UTXO ledger on Quai Network." />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23111'/><text y='23' x='4' font-size='20' font-family='monospace' fill='%23a78bfa'>qi</text></svg>" />
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --brand:       #a78bfa;
+        --brand-dim:   #7c3aed;
+        --bg:          #0d0d0f;
+        --surface:     #131317;
+        --border:      #1f1f27;
+        --text:        #e4e4f0;
+        --text-muted:  #6b6b82;
+        --font-mono:   "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+        --font-sans:   "Inter", system-ui, sans-serif;
+        --header-h:    56px;
+      }
+
+      html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-sans); }
+
+      /* ── header ─────────────────────────────────────────────── */
+      header {
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        height: var(--header-h);
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+        z-index: 100;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+        color: inherit;
+      }
+
+      .logo-mark {
+        width: 30px;
+        height: 30px;
+        background: var(--brand-dim);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--font-mono);
+        font-size: 13px;
+        font-weight: 700;
+        color: #fff;
+        letter-spacing: -0.5px;
+        flex-shrink: 0;
+      }
+
+      .logo-name {
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+      }
+
+      .logo-tag {
+        font-size: 11px;
+        color: var(--text-muted);
+        font-weight: 400;
+        margin-left: 2px;
+      }
+
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .status-dot {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #4ade80;
+        box-shadow: 0 0 6px #4ade8066;
+        animation: pulse 2.5s ease-in-out infinite;
+      }
+
+      .dot.offline { background: #f87171; box-shadow: 0 0 6px #f8717166; animation: none; }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50%       { opacity: 0.4; }
+      }
+
+      .tip-chip {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-muted);
+        background: var(--border);
+        padding: 3px 8px;
+        border-radius: 4px;
+        transition: color 0.3s;
+      }
+
+      .tip-chip span { color: var(--brand); }
+
+      a.gh-link {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-muted);
+        text-decoration: none;
+        padding: 5px 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        transition: border-color 0.2s, color 0.2s;
+      }
+
+      a.gh-link:hover { border-color: var(--brand-dim); color: var(--text); }
+
+      /* ── scalar mount ───────────────────────────────────────── */
+      #scalar-mount {
+        padding-top: var(--header-h);
+        height: 100%;
+      }
+
+      /* scalar dark-mode token overrides */
+      #scalar-mount {
+        --scalar-color-1:        var(--text);
+        --scalar-color-2:        var(--text-muted);
+        --scalar-color-3:        #4a4a60;
+        --scalar-color-accent:   var(--brand);
+        --scalar-background-1:   var(--bg);
+        --scalar-background-2:   var(--surface);
+        --scalar-background-3:   var(--border);
+        --scalar-border-color:   var(--border);
+        --scalar-font:           var(--font-sans);
+        --scalar-font-code:      var(--font-mono);
+        --scalar-sidebar-width:  260px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a class="logo" href="/">
+        <div class="logo-mark">qi</div>
+        <div>
+          <span class="logo-name">qi-index</span>
+          <span class="logo-tag">/ API Reference</span>
+        </div>
+      </a>
+      <div class="header-right">
+        <div class="tip-chip" id="tip-chip">loading…</div>
+        <div class="status-dot">
+          <div class="dot" id="status-dot"></div>
+          <span id="status-label">live</span>
+        </div>
+        <a class="gh-link" href="https://github.com/leviquai/qi-index" target="_blank" rel="noopener">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+              0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+              -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+              .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+              -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09
+              2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82
+              2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01
+              2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+          GitHub
+        </a>
+      </div>
+    </header>
+
+    <div id="scalar-mount"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@latest/dist/browser/standalone.js" crossorigin="anonymous"></script>
+
+    <script>
+      Scalar.createApiReference('#scalar-mount', {
+        url: '/openapi.yaml',
+        darkMode: true,
+        theme: 'deepSpace',
+        hideModels: false,
+        showSidebar: true,
+        defaultHttpClient: { targetKey: 'shell', clientKey: 'curl' },
+        servers: [{ url: window.location.origin, description: 'This server' }],
+        customCss: `
+          .scalar-app { font-family: var(--font-sans); }
+          .sidebar { border-right: 1px solid var(--border) !important; }
+        `,
+      });
+
+      async function pollTip() {
+        const chip  = document.getElementById('tip-chip');
+        const dot   = document.getElementById('status-dot');
+        const label = document.getElementById('status-label');
+        try {
+          const res  = await fetch('/tip');
+          if (!res.ok) throw new Error();
+          const data = await res.json();
+          chip.innerHTML  = 'block <span>#' + data.height.toLocaleString() + '</span>';
+          dot.className   = 'dot';
+          label.textContent = 'live';
+        } catch {
+          chip.textContent  = 'offline';
+          dot.className     = 'dot offline';
+          label.textContent = 'offline';
+        }
+      }
+
+      pollTip();
+      setInterval(pollTip, 15000);
+    </script>
+  </body>
+</html>
