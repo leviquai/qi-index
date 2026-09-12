@@ -51,6 +51,7 @@ services:
       - "${API_PORT:-80}:80"
     volumes:
       - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./web:/usr/share/nginx/html:ro
       - nginx-cache:/var/cache/nginx
 
   # Throwaway Postgres for `make test-integration` — never used by the app
